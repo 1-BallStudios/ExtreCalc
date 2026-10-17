@@ -2,10 +2,48 @@ from biginteger import BigInt
 from bigdecimal import BigDecimal
 from decimal import Decimal
 from scinot import SciNot
+from powertower import PowerTower
 from context import DEFAULT_CONTEXT, ArithmeticContext
 
-MAX_BIGINT_SCINOT_CONVERSION_DIGITS = 1_000_000
+MAX_BIGINT_SCINOT_CONVERSION_DIGITS = 4000
 SCINOT_CONVERSION_PRECISION = 30
+
+from decimal import Decimal, localcontext
+from scinot import SciNot
+
+
+def integer_power_to_scinot(base, exponent, precision=28):
+    """Approximate an integer power directly as SciNot, without building it."""
+    if isinstance(base, bool) or not isinstance(base, int):
+        raise TypeError("Base must be an integer.")
+    if isinstance(exponent, bool) or not isinstance(exponent, int):
+        raise TypeError("Exponent must be an integer.")
+    if exponent < 0:
+        raise ValueError("Exponent must be nonnegative.")
+    if base == 0:
+        return SciNot(0)
+    if exponent == 0:
+        return SciNot(1)
+
+    negative = base < 0 and exponent % 2 == 1
+    base = abs(base)
+
+    if base == 1:
+        return SciNot(-1 if negative else 1)
+
+    with localcontext() as ctx:
+        ctx.prec = precision + 10
+
+        log_value = Decimal(base).log10() * exponent
+        sci_exponent = int(log_value // 1)
+        fractional_part = log_value - sci_exponent
+        coefficient = Decimal(10) ** fractional_part
+
+        if negative:
+            coefficient = -coefficient
+
+        ctx.prec = precision
+        return SciNot(+coefficient, sci_exponent)
 
 def to_bigdecimal(value):
     """Convert an integer or supported value to BigDecimal exactly."""
@@ -23,6 +61,15 @@ def to_bigdecimal(value):
 
     return BigDecimal.parse(str(value))
 
+def _scinot_to_powertower(value):
+    """Convert sufficiently large exact powers of ten to PowerTower."""
+    if value.exponent <= MAX_BIGINT_SCINOT_CONVERSION_DIGITS:
+        return None
+
+    if value.coefficient != 1:
+        return None
+
+    return PowerTower(1, value.exponent)
 
 def to_bigint_exact(value):
     """Convert to BigInt only when the value is an exact integer."""
@@ -95,22 +142,49 @@ def _prepare_pair(a, b):
     if isinstance(a, float) or isinstance(b, float):
         raise TypeError("Float operands are not supported; use strings.")
 
+    if isinstance(a, PowerTower) or isinstance(b, PowerTower):
+        def convert(value):
+            if isinstance(value, PowerTower):
+                return value
+            if isinstance(value, BigInt):
+                return PowerTower(0, str(value))
+            if isinstance(value, int) and not isinstance(value, bool):
+                return PowerTower(0, str(value))
+            if isinstance(value, str):
+                return PowerTower(0, value)
+            raise TypeError(
+                f"Cannot mix PowerTower with {type(value).__name__}"
+            )
+
+        return convert(a), convert(b), "powertower"
+    
     if isinstance(a, SciNot) or isinstance(b, SciNot):
         if isinstance(a, BigDecimal) or isinstance(b, BigDecimal):
             raise TypeError(
                 "Mixed SciNot and BigDecimal operations "
                 "are not supported yet."
             )
-
+    
         def convert(value):
             if isinstance(value, SciNot):
-                return value
+                tower = _scinot_to_powertower(value)
+                return tower if tower is not None else value
+
             if isinstance(value, BigInt):
                 return _bigint_to_scinot(value)
+
             return SciNot.parse(str(value))
 
-        return convert(a), convert(b), "scinot"
+        a_converted = convert(a)
+        b_converted = convert(b)
 
+        if isinstance(a_converted, PowerTower) or isinstance(
+            b_converted, PowerTower
+        ):
+            return a_converted, b_converted, "powertower"
+
+        return a_converted, b_converted, "scinot"
+    
     if any(
         isinstance(value, str)
         and ("e" in value.lower() or "* 10^" in value)
@@ -155,14 +229,27 @@ def divide(a, b, context=None):
     if not isinstance(context, ArithmeticContext):
         raise TypeError("context must be an ArithmeticContext")
 
-    a = to_bigdecimal(a)
-    b = to_bigdecimal(b)
+    a, b, kind = _prepare_pair(a, b)
 
-    return a.__truediv__(
-        b,
-        precision=context.precision,
-        rounding=context.rounding,
-    )
+    if kind == "powertower":
+        return a / b
+
+    if kind == "bigdecimal":
+        return a.__truediv__(
+            b,
+            precision=context.precision,
+            rounding=context.rounding,
+        )
+
+    if kind == "scinot":
+        return a / b
+
+    if kind == "bigint":
+        if b == 0:
+            raise ZeroDivisionError("Cannot divide by zero.")
+        return a / b
+
+    raise TypeError(f"Unsupported division type: {kind}")
 
 
 def integer_divide(a, b):
@@ -189,3 +276,28 @@ def remainder(a, b):
 
     quotient = integer_divide(a, b).value
     return BigInt(a.value - quotient * b.value)
+
+def power(a, b):
+    a = to_bigint_exact(a)
+    b = to_bigint_exact(b)
+        # Extract the underlying Python integers from BigInt.
+    base = a.value
+    exponent = b.value
+
+    if (
+        exponent >= 0
+        and abs(base) > 1
+        and exponent * abs(base).bit_length()
+            > MAX_BIGINT_SCINOT_CONVERSION_DIGITS * 3.322
+    ):
+        return integer_power_to_scinot(base, exponent)
+
+    return a**b
+
+def negate(a):
+    a, b, kind = _prepare_pair(a, -1)
+
+    if kind == "scinot":
+        return a * -1
+
+    return a * -1

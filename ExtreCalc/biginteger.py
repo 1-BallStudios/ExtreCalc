@@ -36,7 +36,7 @@ class BigInt:
         return BigInt(self.value % BigInt(other).value)
 
     def __pow__(self, exponent):
-        exponent = int(exponent)
+        exponent = int(str(exponent))
         if exponent < 0:
             raise ValueError("BigInt requires a nonnegative exponent")
         return BigInt(self.value ** exponent)

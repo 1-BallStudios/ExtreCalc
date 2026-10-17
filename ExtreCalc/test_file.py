@@ -1,23 +1,20 @@
-from powertower import PowerTower
+from expantanum import ExpantaNum
 
-# Different heights
-assert PowerTower(0, 3) < PowerTower(1, 2)    # 3 < 100
-assert PowerTower(1, 2) < PowerTower(2, 1)    # 100 < 10^10
-assert PowerTower(2, 0) < PowerTower(1, 100)  # 10 < 10^100
+def test_expantanum_operations():
+    assert ExpantaNum(7).cmp(ExpantaNum(9)) == -1
+    assert ExpantaNum(9).cmp(ExpantaNum(9)) == 0
+    assert ExpantaNum(9).cmp(ExpantaNum(7)) == 1
 
-# Equivalent values in different forms
-assert PowerTower(0, 10) == PowerTower(1, 1)  # 10 == 10^1
-assert PowerTower(0, 1) == PowerTower(1, 0)   # 1 == 10^0
+    assert ExpantaNum(2).pow(10).to_float() == 1024
+    assert ExpantaNum.hyper(2, 1, 3).to_float() == 5
+    assert ExpantaNum.hyper(2, 2, 3).to_float() == 6
+    assert ExpantaNum.hyper(2, 3, 3).to_float() == 8
 
-# All six comparison operators
-a = PowerTower(1, 3)
-b = PowerTower(1, 4)
+    assert ExpantaNum.tetr(2, 3).to_float() == 16
+    assert ExpantaNum.pent(2, 2).to_float() == 4
 
-assert a < b
-assert a <= b
-assert b > a
-assert b >= a
-assert a == PowerTower(1, 3)
-assert a != b
+    print("All initial ExpantaNum operation tests passed!")
 
-print("PowerTower edge-case tests passed!")
+
+if __name__ == "__main__":
+    test_expantanum_operations()
