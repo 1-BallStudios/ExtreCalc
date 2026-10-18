@@ -1,6 +1,6 @@
 import re
 from decimal import Decimal, localcontext
-
+import math
 
 class SciNot:
     """Scientific notation: coefficient * 10**exponent."""
@@ -137,3 +137,6 @@ class SciNot:
             self.coefficient == other.coefficient
             and self.exponent == other.exponent
         )
+    
+    def log(self):
+        return math.log10(self.coefficient) + self.exponent

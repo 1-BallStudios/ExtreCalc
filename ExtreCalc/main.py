@@ -2,6 +2,7 @@ from arithmetic import *
 from biginteger import BigInt
 from bigdecimal import BigDecimal
 from scinot import SciNot
+from expantanum import ExpantaNum
 import power_normalizer
 import ast
 import io
@@ -85,6 +86,13 @@ UNARY_OPERATORS = {
     ast.USub: negate,
 }
 
+TERNARY_OPERATORS = {
+    "@": {
+        "name": "arrow",
+        "function": arrow,
+    },
+}
+
 VARIABLES = {
     "ans": "",
     "pi": "3.141592653589793",
@@ -152,6 +160,35 @@ def evaluate_node(node):
             return parse_number(literal)
         return "\033[91mOnly numeric constants are allowed.\033[0m"
     
+    if (
+        isinstance(node, ast.BinOp)
+        and isinstance(node.op, ast.MatMult)
+        and isinstance(node.left, ast.BinOp)
+        and isinstance(node.left.op, ast.MatMult)
+    ):
+        # Recognize the left-associated AST for: a @ c @ b
+        a_node = node.left.left
+        c_node = node.left.right
+        b_node = node.right
+
+        a = evaluate_node(a_node)
+        c = evaluate_node(c_node)
+        b = evaluate_node(b_node)
+
+        for value in (a, c, b):
+            if isinstance(value, str) and "\033[91m" in value:
+                return value
+
+        try:
+            return TERNARY_OPERATORS["@"]["function"](a, c, b)
+        except (
+            ArithmeticError,
+            TypeError,
+            ValueError,
+            NotImplementedError,
+        ) as exc:
+            return f"\033[91m{exc}\033[0m"
+
     if isinstance(node, ast.BinOp):
         op_type = type(node.op)
     
@@ -232,10 +269,35 @@ def evaluate_node(node):
     
     return f"\033[91mUnsupported expression: {type(node).__name__}\033[0m"
 
+def normalize_ternary_operators(text):
+    """Translate a{c}b into a @ c @ b for AST parsing."""
+    result = []
+    depth = 0
+
+    for char in text:
+        if char == "{":
+            depth += 1
+            result.append(" @ ")
+        elif char == "}":
+            if depth == 0:
+                raise SyntaxError("Unmatched closing brace.")
+            depth -= 1
+            result.append(" @ ")
+        else:
+            result.append(char)
+
+    if depth != 0:
+        raise SyntaxError("Unmatched opening brace.")
+
+    return "".join(result)
+
 def evaluate_tokens(tokens):
     global CURRENT_EXPRESSION
 
-    CURRENT_EXPRESSION = normalize_operators("".join(tokens))
+    expression = "".join(tokens)
+    expression = normalize_ternary_operators(expression)
+    CURRENT_EXPRESSION = normalize_operators(expression)
+
     tree = ast.parse(CURRENT_EXPRESSION, mode="eval")
     return evaluate_node(tree)
 

@@ -1,8 +1,12 @@
 
 import math
+from biginteger import BigInt
+from bigdecimal import BigDecimal
 from copy import deepcopy
+from powertower import PowerTower
+import power_normalizer
 
-
+super = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
 MAX_SAFE_INTEGER = 9007199254740991
 MAX_E = math.log10(MAX_SAFE_INTEGER)
 
@@ -33,51 +37,82 @@ class ExpantaNum:
 
         self.normalize()
 
-    def iterated_log10(value, count):
-        """Apply log10 repeatedly, preserving huge-number structure."""
-        if isinstance(count, bool) or not isinstance(count, int):
-            raise TypeError("count must be an integer.")
-        if count < 0:
-            for _ in range(-count):
-                result = 10^result
-    
-        result = value.copy()
-    
-        for _ in range(count):
-            result = result.log10()
+    def create_end(self, a):
+        """Make the end component for an a{c}b hyperoperation."""
+        bases = [a] * 6
+        tetrate = power_normalizer.normalize_power_chain(bases)
+        print("\x1b[34mtetrate: "+str(tetrate)+"\x1b[0m")
 
-        return result
-    
-    def tetrate(self, height):
+        if a == 2:
+            times = 2
+        elif a == 3:
+            times = 4
+        else:
+            times = -a + 6
+        print("\x1b[34mtimes: "+str(times)+"\x1b[0m")
+
+        if times < 0:
+            for _ in range(-times):
+                tetrate = PowerTower.parse(
+                    f"{tetrate.height + 1}PT{tetrate.top}"
+                )
+        else:
+            for _ in range(times):
+                if isinstance(tetrate, PowerTower):
+                    if tetrate.height > 0:
+                        tetrate = PowerTower.parse(
+                            f"{tetrate.height - 1}PT{tetrate.top}"
+                        )
+                    else:
+                        tetrate = math.log10(float(str(tetrate.top)))
+                else:
+                    tetrate = math.log10(float(tetrate))
+                print("\x1b[34mresult: "+str(tetrate)+"\x1b[0m")
+
+        return tetrate
+
+    def create_components(self, a, b, c):
         """
-        Integer-height tetration.
-    
-        Uses the convention:
-            a^^0 = 1
-            a^^(h+1) = a ** (a^^h)
-    
-        Requires representation-aware pow() and comparison methods.
+        Build the raw operator components for a{c}b.
+
+        Uses the expansion:
+            (10{c-1})^(b-2)
+            (10{c-2})^(a-2)
+            (10{c-3})^(a-2)
+            ...
+            log10^(a-6)(a^^6)
+
+        Returns:
+            (components, end_component)
+
+        Each component is [operator_index, repetition_count].
         """
-        if isinstance(height, bool) or not isinstance(height, int):
-            raise TypeError("height must be an integer")
-    
-        if height < 0:
-            raise ValueError(
-                "Negative tetration heights need a separate convention."
-            )
-    
-        if height == 0:
-            return ExpantaNum(1)
-    
-        if height == 1:
-            return self.copy()
-    
-        # Base cases only. Do not use this loop for enormous towers.
-        result = self.copy()
-        for _ in range(height - 1):
-            result = self.pow(result)
-    
-        return result
+        for name, value in (("a", a), ("b", b), ("c", c)):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{name} must be an integer.")
+
+        if a < 2 or b < 2 or c < 2:
+            raise ValueError("This expansion currently requires a, b, c >= 2.")
+
+        components = []
+
+        # Leading operator block.
+        leading_count = c - 2
+        if leading_count > 0:
+            components.append([b - 1, leading_count])
+
+        # Descending operator blocks.
+        for operator_index in range(b - 2, 0, -1):
+            count = a - 2
+            if count > 0:
+                components.append([operator_index, count])
+
+        # Calculate the final component using the existing PowerTower helper.
+        end_component = self.create_end(a)
+        if isinstance(end_component, PowerTower):
+            end_component = [0, end_component.top]
+
+        return components, end_component
 
     @staticmethod
     def _from_number(value):
@@ -438,19 +473,19 @@ class ExpantaNum:
 
     @staticmethod
     def hyper(base, rank, payload):
-        """
-        Basic finite hyperoperations for small ordinary operands.
+        def convert_operand(value):
+            if isinstance(value, ExpantaNum):
+                return value
 
-        This initial implementation is intentionally bounded.
-        It does not yet support huge array operands.
-        """
-        base = base if isinstance(base, ExpantaNum) else ExpantaNum(base)
-        payload = (
-            payload
-            if isinstance(payload, ExpantaNum)
-            else ExpantaNum(payload)
-        )
+            if isinstance(value, BigInt):
+                return ExpantaNum(str(value))
 
+            return ExpantaNum(value)
+
+        base = convert_operand(base)
+        rank = int(str(rank))
+        payload = convert_operand(payload)
+    
         if isinstance(rank, bool) or not isinstance(rank, int):
             raise TypeError("rank must be an integer.")
         if rank < 0:
@@ -483,20 +518,23 @@ class ExpantaNum:
             if n == 0:
                 return ExpantaNum(1)
 
-            result = b
+            if not b.is_integer():
+                raise ValueError(
+                    "The component expansion requires an integer base."
+                )
 
-            for _ in range(n - 1):
-                if rank == 4:
-                    result = b ** result
-                else:
-                    result = ExpantaNum.hyper(
-                        b, rank - 1, result
-                    ).to_float()
+            base_int = int(b)
 
-                if not math.isfinite(result):
-                    return ExpantaNum(math.inf)
+            components, end_component = base.create_components(
+                base_int, n, rank
+            )
 
-            return ExpantaNum(result)
+            end_component = [end_component[0], float(str(end_component[1]))]
+            return ExpantaNum(
+                sign=1,
+                array=components + [end_component],
+                layer=0,
+            )
 
         raise ValueError("Unsupported hyperoperation rank.")
 
@@ -518,7 +556,13 @@ class ExpantaNum:
             f"array={self.array!r}, layer={self.layer})"
         )
 
-    def __str__(self):
+    def superscript(self,num):
+        for i in range(10):
+            num = num.replace(str(i),super[i])
+
+        return num
+
+    def __str__(self, superBool = False):
         if self.is_nan():
             return "NaN"
 
@@ -533,7 +577,46 @@ class ExpantaNum:
             if operator_index == 0:
                 return str(self.sign * value)
 
+        string = ""
+        for a in self.array:
+            if a[0] == 0:
+                string = str(a[1])+" "+string
+            elif a[0] == 1:
+                if superBool == True:
+                    string = "(10^)"+self.superscript(str(a[1]))+" "+string
+                else:
+                    if a[1] < 8:
+                        string = ("e"*a[1])+string
+                    else:
+                        string = "(10^)^"+str(a[1])+" "+string
+
+            elif a[0] < 6:
+                if superBool == True:
+                    string = "(10" + ("^"*a[0]) +")"+self.superscript(str(a[1]))+" "+string
+                else:
+                    string = "(10" + ("^"*a[0]) +")^"+str(a[1])+" "+string
+            else:
+                if superBool == True:
+                    string = "(10{"+str(a[0])+"})"+self.superscript(str(a[1]))+" "+string
+                else:
+                    string = "(10{"+str(a[0])+"})^"+str(a[1])+" "+string
+        if self.layer != 0:
+            if self.layer < 4:
+                string = ("J"*self.layer)+" "+str(self.layer)+" "+string
+            else:
+                if superBool == True:
+                    string = "J"+self.superscript(str(self.layer))+" "+string
+                else:
+                    string = "J^"+str(self.layer)+" "+string
+        if self.sign == -1:
+            string = "-" + string
+        if self.array[0][0] != 0:
+            string = string + "10"
+        return string
+    
+    def str_debug(self):
         return (
-            f"ExpantaNum(sign={self.sign}, "
-            f"array={self.array!r}, layer={self.layer})"
+            "aign = " + str(self.sign) +
+            "array = " + str(self.array) +
+            "layer = " + str(self.layer)
         )

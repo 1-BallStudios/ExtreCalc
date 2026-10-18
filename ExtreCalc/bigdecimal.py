@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import re
+import math
 
 DEFAULT_PRECISION = 30
 DEFAULT_ROUNDING = "half_up"
@@ -218,7 +219,55 @@ class BigDecimal:
             quotient_exponent - (precision - 1),
         )
 
-    
+    def _cap_precision(self, precision):
+        """Round the coefficient to at most `precision` significant digits."""
+        if precision < 1:
+            raise ValueError("precision must be at least 1")
+
+        # Replace these field names with your actual representation.
+        coefficient = self.coefficient
+        exponent = self.exponent
+
+        if coefficient == 0:
+            return self
+
+        sign = -1 if coefficient < 0 else 1
+        digits = str(abs(coefficient))
+
+        if len(digits) > precision:
+            removed = len(digits) - precision
+            divisor = 10 ** removed
+            quotient, remainder = divmod(abs(coefficient), divisor)
+
+            # Round half up.
+            if remainder * 2 >= divisor:
+                quotient += 1
+
+            coefficient = sign * quotient
+            exponent += removed
+
+        # Rebuild the BigDecimal using your actual constructor.
+        return BigDecimal(coefficient, exponent)
+
+    def __pow__(self, exponent, precision=DEFAULT_PRECISION):
+        if not isinstance(exponent, int) or isinstance(exponent, bool):
+            raise TypeError("Exponent must be an integer.")
+        if exponent < 0:
+            raise ValueError("Negative exponents are not supported here.")
+
+        result = BigDecimal.parse("1")
+        base = self
+        n = exponent
+
+        while n:
+            if n & 1:
+                result = result * base
+            n >>= 1
+            if n:
+                base = base * base
+
+        return self._cap_precision(precision)
+
     def round_significant(
         self,
         precision=None,
@@ -302,3 +351,28 @@ class BigDecimal:
             quotient,
             self.exponent + discarded,
         )
+
+    def log10(value, precision=30):
+        """Approximate log10(BigDecimal) and return a BigDecimal."""
+        if not isinstance(value, BigDecimal):
+            value = BigDecimal.parse(str(value))
+
+        if value.sign <= 0:
+            raise ValueError("log10 requires a positive BigDecimal.")
+
+        coefficient_text = str(value.coefficient).lstrip("0")
+        if not coefficient_text:
+            raise ValueError("log10(0) is undefined.")
+
+        digits = coefficient_text[:precision]
+        leading = int(digits)
+
+        # Normalize leading digits to [1, 10).
+        mantissa = leading / (10 ** (len(digits) - 1))
+        coefficient_log = (
+            len(coefficient_text) - 1 + math.log10(mantissa)
+        )
+
+        # Convert the approximation into BigDecimal and add the exponent.
+        result = BigDecimal.parse(str(coefficient_log))
+        return result + BigDecimal.parse(str(value.exponent))

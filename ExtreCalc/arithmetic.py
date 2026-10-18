@@ -2,8 +2,10 @@ from biginteger import BigInt
 from bigdecimal import BigDecimal
 from decimal import Decimal
 from scinot import SciNot
+from expantanum import ExpantaNum
 from powertower import PowerTower
 from context import DEFAULT_CONTEXT, ArithmeticContext
+import math
 
 MAX_BIGINT_SCINOT_CONVERSION_DIGITS = 4000
 SCINOT_CONVERSION_PRECISION = 30
@@ -158,6 +160,27 @@ def _prepare_pair(a, b):
 
         return convert(a), convert(b), "powertower"
     
+    if isinstance(a, ExpantaNum) or isinstance(b, ExpantaNum):
+        if isinstance(a, PowerTower) or isinstance(b, PowerTower):
+            raise TypeError(
+                "Mixing ExpantaNum and PowerTower is not supported yet."
+            )
+
+        def convert(value):
+            if isinstance(value, ExpantaNum):
+                return value
+            if isinstance(value, (BigInt, BigDecimal)):
+                return ExpantaNum(str(value))
+            if isinstance(value, int) and not isinstance(value, bool):
+                return ExpantaNum(value)
+            if isinstance(value, str):
+                return ExpantaNum(value)
+            raise TypeError(
+                f"Cannot mix ExpantaNum with {type(value).__name__}"
+            )
+
+        return convert(a), convert(b), "expantanum"
+
     if isinstance(a, SciNot) or isinstance(b, SciNot):
         if isinstance(a, BigDecimal) or isinstance(b, BigDecimal):
             raise TypeError(
@@ -205,16 +228,22 @@ def _prepare_pair(a, b):
 
 def add(a, b):
     a, b, kind = _prepare_pair(a, b)
+    if kind == ExpantaNum:
+        return a
     return a + b
 
 
 def subtract(a, b):
     a, b, kind = _prepare_pair(a, b)
+    if kind == ExpantaNum:
+        return a
     return a - b
 
 
 def multiply(a, b):
     a, b, kind = _prepare_pair(a, b)
+    if kind == ExpantaNum:
+        return a
 
     if kind == "scinot":
         return a * b
@@ -233,21 +262,20 @@ def divide(a, b, context=None):
 
     if kind == "powertower":
         return a / b
-
-    if kind == "bigdecimal":
+    elif kind == "bigdecimal":
         return a.__truediv__(
             b,
             precision=context.precision,
             rounding=context.rounding,
         )
-
-    if kind == "scinot":
+    elif kind == "scinot":
         return a / b
-
-    if kind == "bigint":
+    elif kind == "bigint":
         if b == 0:
             raise ZeroDivisionError("Cannot divide by zero.")
         return a / b
+    elif kind == "expantanum":
+        return a
 
     raise TypeError(f"Unsupported division type: {kind}")
 
@@ -291,8 +319,11 @@ def power(a, b):
             > MAX_BIGINT_SCINOT_CONVERSION_DIGITS * 3.322
     ):
         return integer_power_to_scinot(base, exponent)
-
+    
     return a**b
+
+def arrow(a, b, c):
+    return ExpantaNum.arrow(a,b,c)
 
 def negate(a):
     a, b, kind = _prepare_pair(a, -1)

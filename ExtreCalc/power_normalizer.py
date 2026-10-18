@@ -1,7 +1,10 @@
 from decimal import Decimal, localcontext
-
+from bigdecimal import BigDecimal
 from powertower import PowerTower
 from scinot import SciNot
+from biginteger import BigInt
+import sys
+sys.set_int_max_str_digits(0)
 
 MAX_EXACT_BITS = 100_000
 
@@ -77,13 +80,12 @@ def normalize_number(value, precision=30):
         # Undo the final logarithm count in the representation:
         # hPTx means h nested powers of ten ending in x.
         return PowerTower(height, str(value))
-    
+
 def normalize_power_chain(bases, precision=40):
     """
     Approximate a right-associative integer power chain as PowerTower.
 
-    Example:
-        [20, 19, 18, ..., 11, 10]
+    Uses BigDecimal.log10() for logarithmic conversion.
     """
     if not bases or any(
         isinstance(n, bool) or not isinstance(n, int)
@@ -93,33 +95,24 @@ def normalize_power_chain(bases, precision=40):
 
     if any(n <= 1 for n in bases):
         raise ValueError(
-            "This normalizer currently requires every base to exceed 1."
+            "This normalizer requires every base to exceed 1."
         )
 
     if len(bases) < 3:
         raise ValueError("A chain must contain at least three bases.")
 
-    with localcontext() as ctx:
-        ctx.prec = precision
+    # Evaluate the innermost power chain while it remains manageable.
+    value = BigDecimal.parse(str(bases[-1]))
 
-        # Each logarithm removes one outer power.
-        # Stop with the final two bases, whose power is manageable.
-        remaining = len(bases) - 2
-        coefficient = Decimal(0)
-        correction = Decimal(0)
+    for base in reversed(bases[1:-1]):
+        exponent = int(str(value))  # Requires an exact integer exponent.
+        value = BigDecimal.parse(str(base)) ** exponent
 
-        for i in range(remaining):
-            previous_coefficient = coefficient
-            coefficient = Decimal(bases[i]).log10()
+    # Convert the outermost power to base-10 logarithmic form.
+    top = value * BigDecimal.parse(str(bases[0])).log10()
 
-            if i > 0:
-                correction = previous_coefficient.log10()
-
-        # Evaluate only the final, small power.
-        tail = Decimal(bases[-2]) ** bases[-1]
-        top = coefficient * tail + correction
-        return PowerTower(remaining, str(+top))
-
+    return PowerTower(1, str(top))
+    
 def normalize_powertower(value, max_digits=1000, precision=30):
     """Convert a PowerTower to BigInt or SciNot when practical."""
     if not isinstance(value, PowerTower):
