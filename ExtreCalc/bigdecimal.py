@@ -219,36 +219,6 @@ class BigDecimal:
             quotient_exponent - (precision - 1),
         )
 
-    def _cap_precision(self, precision):
-        """Round the coefficient to at most `precision` significant digits."""
-        if precision < 1:
-            raise ValueError("precision must be at least 1")
-
-        # Replace these field names with your actual representation.
-        coefficient = self.coefficient
-        exponent = self.exponent
-
-        if coefficient == 0:
-            return self
-
-        sign = -1 if coefficient < 0 else 1
-        digits = str(abs(coefficient))
-
-        if len(digits) > precision:
-            removed = len(digits) - precision
-            divisor = 10 ** removed
-            quotient, remainder = divmod(abs(coefficient), divisor)
-
-            # Round half up.
-            if remainder * 2 >= divisor:
-                quotient += 1
-
-            coefficient = sign * quotient
-            exponent += removed
-
-        # Rebuild the BigDecimal using your actual constructor.
-        return BigDecimal(coefficient, exponent)
-
     def __pow__(self, exponent, precision=DEFAULT_PRECISION):
         if not isinstance(exponent, int) or isinstance(exponent, bool):
             raise TypeError("Exponent must be an integer.")
@@ -266,7 +236,7 @@ class BigDecimal:
             if n:
                 base = base * base
 
-        return self._cap_precision(precision)
+        return result.round_significant(precision)
 
     def round_significant(
         self,
@@ -376,3 +346,11 @@ class BigDecimal:
         # Convert the approximation into BigDecimal and add the exponent.
         result = BigDecimal.parse(str(coefficient_log))
         return result + BigDecimal.parse(str(value.exponent))
+
+    def compare(self, other):
+        if self.round_significant().coefficient < other.round_significant().coefficient:
+            return -1
+        elif self.round_significant().coefficient == other.round_significant().coefficient:
+            return 0
+        else:
+            return 1

@@ -529,7 +529,13 @@ class ExpantaNum:
                 base_int, n, rank
             )
 
-            end_component = [end_component[0], float(str(end_component[1]))]
+            if isinstance(end_component, PowerTower):
+                end_component = [end_component[0], float(str(end_component[1]))]
+            else:
+                end_component = [0, float(str(end_component[1]))]
+
+            print(str(end_component))
+
             return ExpantaNum(
                 sign=1,
                 array=components + [end_component],
