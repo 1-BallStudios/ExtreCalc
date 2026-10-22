@@ -41,15 +41,13 @@ class ExpantaNum:
         """Make the end component for an a{c}b hyperoperation."""
         bases = [a] * 6
         tetrate = power_normalizer.normalize_power_chain(bases)
-        print("\x1b[34mtetrate: "+str(tetrate)+"\x1b[0m")
 
         if a == 2:
-            times = 2
+            return PowerTower.parse("65532PT19727.780405607016")
         elif a == 3:
-            times = 4
+            return PowerTower.parse("7625597484984PT3638334640023.7783")
         else:
             times = -a + 6
-        print("\x1b[34mtimes: "+str(times)+"\x1b[0m")
 
         if times < 0:
             for _ in range(-times):
@@ -67,23 +65,19 @@ class ExpantaNum:
                         tetrate = math.log10(float(str(tetrate.top)))
                 else:
                     tetrate = math.log10(float(tetrate))
-                print("\x1b[34mresult: "+str(tetrate)+"\x1b[0m")
 
         return tetrate
 
     def create_components(self, a, b, c):
         """
-        Build the raw operator components for a{c}b.
+        Build raw operator components for a{c}b.
 
-        Uses the expansion:
+        Expansion:
             (10{c-1})^(b-2)
             (10{c-2})^(a-2)
             (10{c-3})^(a-2)
             ...
-            log10^(a-6)(a^^6)
-
-        Returns:
-            (components, end_component)
+            followed by the end component.
 
         Each component is [operator_index, repetition_count].
         """
@@ -92,23 +86,25 @@ class ExpantaNum:
                 raise TypeError(f"{name} must be an integer.")
 
         if a < 2 or b < 2 or c < 2:
-            raise ValueError("This expansion currently requires a, b, c >= 2.")
+            raise ValueError(
+                "This expansion currently requires a, b, c >= 2."
+            )
 
         components = []
 
-        # Leading operator block.
-        leading_count = c - 2
+        # Leading operator block: (10{c-1})^(b-2)
+        leading_count = b - 2
         if leading_count > 0:
-            components.append([b - 1, leading_count])
+            components.append([c - 3, leading_count])
 
         # Descending operator blocks.
-        for operator_index in range(b - 2, 0, -1):
-            count = a - 2
-            if count > 0:
+        count = a - 2
+        if count > 0:
+            for operator_index in range(c - 4, 0, -1):
                 components.append([operator_index, count])
 
-        # Calculate the final component using the existing PowerTower helper.
         end_component = self.create_end(a)
+
         if isinstance(end_component, PowerTower):
             end_component = [0, end_component.top]
 
@@ -530,11 +526,20 @@ class ExpantaNum:
             )
 
             if isinstance(end_component, PowerTower):
-                end_component = [end_component[0], float(str(end_component[1]))]
+                components.append([1, end_component.height])
+                end_component = [0, end_component.top]
+            elif isinstance(end_component, list):
+                # It's already in [operator_index, value] form.
+                end_component = [
+                    end_component[0],
+                    end_component[1]
+                ]
             else:
-                end_component = [0, float(str(end_component[1]))]
+                end_component = [0, end_component]
 
-            print(str(end_component))
+            end_component = [0,float(str(end_component[1]))]
+            
+            print(str(components))
 
             return ExpantaNum(
                 sign=1,
@@ -568,7 +573,7 @@ class ExpantaNum:
 
         return num
 
-    def __str__(self, superBool = False):
+    def to_str(self, superBool = False):
         if self.is_nan():
             return "NaN"
 

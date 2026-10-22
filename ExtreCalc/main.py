@@ -362,7 +362,10 @@ while running:
         print("superBool has been set to " + str(superBool))
         print("")
     else:    
-        VARIABLES["ans"] = str(evaluate_tokens(tokenize_input(INPUT)))
+        if isinstance(evaluate_tokens(tokenize_input(INPUT)), ExpantaNum):
+            VARIABLES["ans"] = ExpantaNum.to_str(evaluate_tokens(tokenize_input(INPUT)),superBool)
+        else:
+            VARIABLES["ans"] = str(evaluate_tokens(tokenize_input(INPUT)))
         if superBool == True and VARIABLES["ans"].__contains__("e"):
             exponent = str(SciNot.parse(VARIABLES["ans"]).exponent)
             for i in range(10):
