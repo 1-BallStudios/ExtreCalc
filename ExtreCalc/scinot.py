@@ -137,6 +137,54 @@ class SciNot:
             self.coefficient == other.coefficient
             and self.exponent == other.exponent
         )
+        
+    def compare(self, other):
+        if self == other:
+            return 0
+        elif self.exponent > other.exponent:
+            return 1
+        elif self.exponent < other.exponent:
+            return -1
+        else:
+            if self.coefficient > other.coefficient:
+                return 1
+            else:
+                return -1
+                
+    def __lt__(self,other):
+        return self.compare(other) < 0
+    
+    def __le__(self,other):
+        return self.compare(other) <= 0
+    
+    def __gt__(self,other):
+        return self.compare(other) > 0
+    
+    def __ge__(self,other):
+        return self.compare(other) >= 0
+        
+    def __int__(self):
+        return self.coefficient * 10 ** self.exponent
+    
+    def __float__(self):
+        return float(self.coefficient * 10 ** self.exponent)
+        
+    def __pow__(self, other):
+        return SciNot(
+            self.coefficient ** (other.coefficient * 10 ** other.exponent),
+            self.exponent * other.coefficient * 10 ** other.exponent,
+        )
+        
+    def sqrt(self):
+        coefficient = self.coefficient
+        exponent = self.exponent
+        if exponent % 2:
+            coefficient *= 10
+            exponent -= 1
+        return SciNot(
+            math.sqrt(coefficient),
+            exponent // 2,
+        )
     
     def log(self):
         return math.log10(self.coefficient) + self.exponent
