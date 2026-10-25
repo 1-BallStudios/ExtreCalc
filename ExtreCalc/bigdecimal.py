@@ -356,19 +356,19 @@ class BigDecimal:
             return 1
             
     def __lt__(self, other):
-        return compare(self, other) == -1
+        return self.compare(other) < 0
         
     def __le__(self, other):
-        return compare(self, other) == -1 or compare(self, other) == 0
+        return self.compare(other) <= 0
         
     def __gt__(self, other):
-        return compare(self, other) == 1
+        return self.compare(other) > 0
     
     def __ge__(self, other):
-        return compare(self, other) == 1 or compare(self, other) == 0
+        return self.compare(other) >= 0
         
     def __eq__(self, other):
-        return compare(self, other) == 0
+        return self.compare(other) == 0
         
     def __neg__(self):
         return BigDecimal(-self.sign, self.coefficient, self.exponent)
