@@ -354,3 +354,95 @@ class BigDecimal:
             return 0
         else:
             return 1
+            
+    def __lt__(self, other):
+        return compare(self, other) == -1
+        
+    def __le__(self, other):
+        return compare(self, other) == -1 or compare(self, other) == 0
+        
+    def __gt__(self, other):
+        return compare(self, other) == 1
+    
+    def __ge__(self, other):
+        return compare(self, other) == 1 or compare(self, other) == 0
+        
+    def __eq__(self, other):
+        return compare(self, other) == 0
+        
+    def __neg__(self):
+        return BigDecimal(-self.sign, self.coefficient, self.exponent)
+        
+    def __abs__(self):
+        return BigDecimal(1, self.coefficient, self.exponent)
+        
+    def __int__(self):
+        return self.round_significant(1,"down")
+    
+    def __float__(self):
+        return float(str(self))
+        
+    def __floor__(self):
+        return self.round_significant(1,"floor")
+        
+    def __ceil__(self):
+        return self.round_significant(1,"ceiling")
+
+    def sqrt(self, precision=None, rounding=None, *, context=None):
+        """Return the nonnegative square root as a rounded BigDecimal."""
+    
+        if context is not None:
+            if precision is not None or rounding is not None:
+                raise ValueError(
+                    "Pass either context or explicit settings, not both"
+                )
+            precision = context.precision
+            rounding = context.rounding
+    
+        if self.sign < 0:
+            raise ValueError("Square root of a negative BigDecimal")
+    
+        if self.sign == 0 or self.coefficient == 0:
+            return BigDecimal(0, 0, 0)
+    
+        if precision is None:
+            precision = DEFAULT_PRECISION
+    
+        if not isinstance(precision, int) or isinstance(precision, bool):
+            raise TypeError("Precision must be an integer")
+    
+        if precision < 1:
+            raise ValueError("Precision must be at least 1")
+    
+        if rounding is None:
+            rounding = DEFAULT_ROUNDING
+    
+        if rounding not in SUPPORTED_ROUNDING:
+            raise ValueError(f"Unsupported rounding mode: {rounding}")
+    
+        coefficient = self.coefficient
+        exponent = self.exponent
+    
+        # Make the exponent even so its square root is integral.
+        if exponent % 2:
+            coefficient *= 10
+            exponent -= 1
+    
+        # Calculate extra digits to reduce truncation error before rounding.
+        digits = len(str(coefficient))
+        root_digits = (digits + 1) // 2
+        extra_digits = max(0, precision - root_digits) + 4
+    
+        scale = 10 ** (2 * extra_digits)
+        root = isqrt(coefficient * scale)
+    
+        result = BigDecimal(
+            1,
+            root,
+            exponent // 2 - extra_digits,
+        )
+    
+        return result.round_significant(
+            precision=precision,
+            rounding=rounding,
+        )
