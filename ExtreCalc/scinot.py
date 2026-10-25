@@ -164,7 +164,7 @@ class SciNot:
         return self.compare(other) >= 0
         
     def __int__(self):
-        return self.coefficient * 10 ** self.exponent
+        return int(self.coefficient * 10 ** self.exponent)
     
     def __float__(self):
         return float(self.coefficient * 10 ** self.exponent)
@@ -175,6 +175,30 @@ class SciNot:
             self.exponent * other.coefficient * 10 ** other.exponent,
         )
         
+    def __floor__(self):
+        if self.exponent < 0:
+            return SciNot(
+                self.coefficient.quantize(Decimal('1'+'0'*-self.exponent), rounding = ROUND_FLOOR),
+                self.exponent,
+            )
+        else:
+            return SciNot(
+                self.coefficient.quantize(Decimal('0.'+'0'*(self.exponent-1)+'1'), rounding = ROUND_FLOOR),
+                self.exponent,
+            )
+    
+    def __ceil__(self):
+        if self.exponent < 0:
+            return SciNot(
+                self.coefficient.quantize(Decimal('1'+'0'*-self.exponent), rounding = ROUND_CEILING),
+                self.exponent,
+            )
+        else:
+            return SciNot(
+                self.coefficient.quantize(Decimal('0.'+'0'*(self.exponent-1)+'1'), rounding = ROUND_CEILING),
+                self.exponent,
+            )
+    
     def sqrt(self):
         coefficient = self.coefficient
         exponent = self.exponent
@@ -182,9 +206,12 @@ class SciNot:
             coefficient *= 10
             exponent -= 1
         return SciNot(
-            math.sqrt(coefficient),
+            coefficient.sqrt(),
             exponent // 2,
         )
     
     def log(self):
-        return math.log10(self.coefficient) + self.exponent
+        return SciNot(
+            self.coefficient.log10() + self.exponent,
+            0,
+        )
