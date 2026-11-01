@@ -7,14 +7,16 @@ import power_normalizer
 import ast
 import io
 import tokenize
-import operator
 import re
 import os
 import sys
+import math
+import operator
 
 sys.set_int_max_str_digits(0)
 super = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
 superBool = False
+separator = True
 running = True
 
 os.system('cls' if os.name == 'nt' else 'clear')
@@ -84,6 +86,11 @@ BINARY_OPERATORS = {
 UNARY_OPERATORS = {
     ast.UAdd: operator.pos,
     ast.USub: negate,
+}
+
+FUNCTIONS = {
+    "sqrt": sqrt,
+    "log": log10,
 }
 
 TERNARY_OPERATORS = {
@@ -260,7 +267,43 @@ def evaluate_node(node):
         ):
             return PowerTower.parse(node.args[0].value)
 
+           # Ordinary registered functions, e.g. sqrt(25), log(1000)
+        if isinstance(node.func, ast.Name):
+            name = node.func.id
+
+
+            if name not in FUNCTIONS:
+                return f"\033[91mUnknown function: {name}\033[0m"
+
+
+            if node.keywords:
+                return "\033[91mKeyword arguments are not supported.\033[0m"
+
+
+            if len(node.args) != 1:
+                return f"\033[91m{name}() expects one argument.\033[0m"
+
+
+            argument = evaluate_node(node.args[0])
+
+
+            if isinstance(argument, str) and "\033[91m" in argument:
+                return argument
+
+
+            try:
+                return FUNCTIONS[name](argument)
+            except (
+                ArithmeticError,
+                TypeError,
+                ValueError,
+                NotImplementedError,
+            ) as exc:
+                return f"\033[91m{exc}\033[0m"
+
+
         return "\033[91mUnsupported function call.\033[0m"
+
 
     if isinstance(node, ast.Name):
         if node.id in VARIABLES:
@@ -361,6 +404,13 @@ while running:
             superBool = False
         print("superBool has been set to " + str(superBool))
         print("")
+    elif INPUT == "separator":
+        if separator == False:
+            separator = True
+        else:
+            separator = False
+        print("separators has been set to " + str(separator))
+        print("")
     else:    
         if isinstance(evaluate_tokens(tokenize_input(INPUT)), ExpantaNum):
             VARIABLES["ans"] = ExpantaNum.to_str(evaluate_tokens(tokenize_input(INPUT)),superBool)
@@ -371,6 +421,9 @@ while running:
             for i in range(10):
                 exponent = exponent.replace(str(i),super[i])
             print(str(SciNot.parse(VARIABLES["ans"]).coefficient)+" × 10"+exponent)
+        if separator == True:
+            a = f"{int(VARIABLES["ans"]):,}"
+            print(a.replace(",","'"))
         else:
             print(VARIABLES["ans"])
         print("")

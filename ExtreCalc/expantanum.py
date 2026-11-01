@@ -45,7 +45,7 @@ class ExpantaNum:
         if a == 2:
             return PowerTower.parse("65532PT19727.780405607016")
         elif a == 3:
-            return PowerTower.parse("7625597484984PT3638334640023.7783")
+            return PowerTower.parse("7625597484983PT3638334640023.7783")
         else:
             times = -a + 6
 
@@ -106,7 +106,9 @@ class ExpantaNum:
         end_component = self.create_end(a)
 
         if isinstance(end_component, PowerTower):
-            end_component = [0, end_component.top]
+            if isinstance(end_component, PowerTower):
+                components.append([1, end_component.height])
+                end_component = [0, end_component.top]
 
         return components, end_component
 
@@ -525,10 +527,7 @@ class ExpantaNum:
                 base_int, n, rank
             )
 
-            if isinstance(end_component, PowerTower):
-                components.append([1, end_component.height])
-                end_component = [0, end_component.top]
-            elif isinstance(end_component, list):
+            if isinstance(end_component, list):
                 # It's already in [operator_index, value] form.
                 end_component = [
                     end_component[0],
@@ -537,9 +536,8 @@ class ExpantaNum:
             else:
                 end_component = [0, end_component]
 
-            end_component = [0,float(str(end_component[1]))]
-            
-            print(str(components))
+            if isinstance(end_component[1],BigDecimal):
+                end_component = [0,float(str(end_component[1]))]
 
             return ExpantaNum(
                 sign=1,
@@ -602,12 +600,16 @@ class ExpantaNum:
                         string = "(10^)^"+str(a[1])+" "+string
 
             elif a[0] < 6:
-                if superBool == True:
+                if a[1] == 1:
+                    string = "10" + ("^"*a[0]) +string
+                elif superBool == True:
                     string = "(10" + ("^"*a[0]) +")"+self.superscript(str(a[1]))+" "+string
                 else:
                     string = "(10" + ("^"*a[0]) +")^"+str(a[1])+" "+string
             else:
-                if superBool == True:
+                if a[1] == 1:
+                    string = "10{"+str(a[0])+"}"+string
+                elif superBool == True:
                     string = "(10{"+str(a[0])+"})"+self.superscript(str(a[1]))+" "+string
                 else:
                     string = "(10{"+str(a[0])+"})^"+str(a[1])+" "+string

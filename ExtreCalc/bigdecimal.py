@@ -434,7 +434,7 @@ class BigDecimal:
         extra_digits = max(0, precision - root_digits) + 4
     
         scale = 10 ** (2 * extra_digits)
-        root = isqrt(coefficient * scale)
+        root = math.isqrt(coefficient * scale)
     
         result = BigDecimal(
             1,

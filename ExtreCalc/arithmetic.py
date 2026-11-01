@@ -260,6 +260,11 @@ def divide(a, b, context=None):
 
     a, b, kind = _prepare_pair(a, b)
 
+    if isinstance(a,BigInt):
+        a = BigDecimal.parse(str(a))
+    if isinstance(a,BigInt):
+        b = BigDecimal.parse(str(b))
+
     if kind == "powertower":
         return a / b
     elif kind == "bigdecimal":
@@ -326,9 +331,16 @@ def arrow(a, b, c):
     return ExpantaNum.arrow(a,b,c)
 
 def negate(a):
-    a, b, kind = _prepare_pair(a, -1)
-
-    if kind == "scinot":
-        return a * -1
-
     return a * -1
+
+def log10(a):
+    if isinstance(a,BigInt):
+        a = BigDecimal.parse(str(a))
+    if isinstance(a, BigDecimal) or isinstance(a, SciNot):
+        return a.log10()
+
+def sqrt(a):
+    if isinstance(a,BigInt):
+        a = BigDecimal.parse(str(a))
+    if isinstance(a, BigDecimal) or isinstance(a, SciNot):
+        return a.sqrt()
