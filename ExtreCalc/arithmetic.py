@@ -311,20 +311,27 @@ def remainder(a, b):
     return BigInt(a.value - quotient * b.value)
 
 def power(a, b):
-    a = to_bigint_exact(a)
-    b = to_bigint_exact(b)
-        # Extract the underlying Python integers from BigInt.
-    base = a.value
-    exponent = b.value
+    a,b,kind = _prepare_pair(a,b)
+    if isinstance(a,BigDecimal) or isinstance(b,BigDecimal):
+        if isinstance(a,BigDecimal) and not isinstance(b,BigDecimal):
+            b = BigDecimal.parse(str(b))
+        if isinstance(b,BigDecimal) and not isinstance(a,BigDecimal):
+            a = BigDecimal.parse(str(a))
+    else:
+        a = to_bigint_exact(a)
+        b = to_bigint_exact(b)
+            # Extract the underlying Python integers from BigInt.
+        base = a.value
+        exponent = b.value
 
-    if (
-        exponent >= 0
-        and abs(base) > 1
-        and exponent * abs(base).bit_length()
-            > MAX_BIGINT_SCINOT_CONVERSION_DIGITS * 3.322
-    ):
-        return integer_power_to_scinot(base, exponent)
-    
+        if (
+            exponent >= 0
+            and abs(base) > 1
+            and exponent * abs(base).bit_length()
+                > MAX_BIGINT_SCINOT_CONVERSION_DIGITS * 3.322
+        ):
+            return integer_power_to_scinot(base, exponent)
+        
     return a**b
 
 def arrow(a, b, c):
@@ -344,3 +351,32 @@ def sqrt(a):
         a = BigDecimal.parse(str(a))
     if isinstance(a, BigDecimal) or isinstance(a, SciNot):
         return a.sqrt()
+
+def ackermann1(a):
+    return ExpantaNum.arrow(a,a,a)
+
+def ackermann2(a,b):
+    temp = ExpantaNum.arrow(2,a-2,b+3)
+    if a == 0:
+        return b+1
+    else:
+        try:
+            return int(temp.to_float())-3
+        except OverflowError:
+            return temp
+
+def ackermann_dispatch(*args):
+    if len(args) == 1:
+        return ackermann1(args[0])
+    if len(args) == 2:
+        return ackermann2(args[0],args[1])
+
+    raise ValueError("ackermann() expects at most two arguments: "+str(len(args))+" were given.")
+
+def logb(a,b):
+    if isinstance(a,BigInt):
+        a = BigDecimal.parse(str(a))
+    if isinstance(b,BigInt):
+        b = BigDecimal.parse(str(b))
+    if isinstance(a, BigDecimal) or isinstance(a, SciNot):
+        return a.log10()/b.log10()

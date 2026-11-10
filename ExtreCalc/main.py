@@ -91,6 +91,8 @@ UNARY_OPERATORS = {
 FUNCTIONS = {
     "sqrt": sqrt,
     "log": log10,
+    "logb": logb,
+    "ackermann": ackermann_dispatch,
 }
 
 TERNARY_OPERATORS = {
@@ -280,19 +282,14 @@ def evaluate_node(node):
                 return "\033[91mKeyword arguments are not supported.\033[0m"
 
 
-            if len(node.args) != 1:
-                return f"\033[91m{name}() expects one argument.\033[0m"
+            args = [evaluate_node(arg) for arg in node.args]
 
-
-            argument = evaluate_node(node.args[0])
-
-
-            if isinstance(argument, str) and "\033[91m" in argument:
-                return argument
-
+            for arg in args:
+                if isinstance(arg, str) and "\033[91m" in arg:
+                    return arg
 
             try:
-                return FUNCTIONS[name](argument)
+                return FUNCTIONS[name](*args)
             except (
                 ArithmeticError,
                 TypeError,
@@ -363,16 +360,23 @@ while running:
     INPUT = input("")
     if INPUT == "?":
         print("\033[32mBelow is a list of all functions and operations:\033[0m")
-        print("\033[32m +  ---------------------- addition\033[0m")
-        print("\033[32m -  ------------------- subtraction\033[0m")
-        print("\033[32m *  ---------------- multiplication\033[0m")
-        print("\033[32m /  ---------------------- division\033[0m")
-        print("\033[32m ** ---------------- exponentiation\033[0m")
-        print("\033[32m // -------------- integer division\033[0m")
-        print("\033[32m %  --------------------- remainder\033[0m")
-        print("\033[32m sciNot ------------- format to xEy\033[0m")
-        print("\033[32m hyperE ------------ format to Ex#y\033[0m")
-        print("\033[32m superBool - Toggle Fancy Exponents\033[0m")
+        print("\033[32m a + b --------------------- addition\033[0m")
+        print("\033[32m a - b ------------------ subtraction\033[0m")
+        print("\033[32m a * b --------------- multiplication\033[0m")
+        print("\033[32m a / b --------------------- division\033[0m")
+        print("\033[32m a ^ b --------------- exponentiation\033[0m")
+        print("\033[32m a // b ------------ integer division\033[0m")
+        print("\033[32m a % b -------------------- remainder\033[0m")
+        print("\033[32m sqrt(a) ---------------- square root\033[0m")
+        print("\033[32m log10(a) --------- base-10 logarithm\033[0m")
+        print("\033[32m logb(a,b) --------- base-b logarithm\033[0m")
+        print("\033[32m a{c}b -------------- hyperoperations\033[0m")
+        print("\033[32m ackermann(a) -- ath ackermann number\033[0m")
+        print("\033[32m ackermann(a,b) -------------- A(a,b)\033[0m")
+        print("\033[32m sciNot --------------- format to xEy\033[0m")
+        print("\033[32m hyperE -------------- format to Ex#y\033[0m")
+        print("\033[32m superBool --- Toggle Fancy Exponents\033[0m")
+        print("\033[32m separator ------ Toggle ' Separators\033[0m")
         print("")
     elif INPUT == "credits":
         print("----- CREDITS -----")
@@ -416,13 +420,13 @@ while running:
             VARIABLES["ans"] = ExpantaNum.to_str(evaluate_tokens(tokenize_input(INPUT)),superBool)
         else:
             VARIABLES["ans"] = str(evaluate_tokens(tokenize_input(INPUT)))
-        if superBool == True and VARIABLES["ans"].__contains__("e"):
+        if superBool == True and VARIABLES["ans"].__contains__("e") and not VARIABLES["ans"].__contains__("PT"):
             exponent = str(SciNot.parse(VARIABLES["ans"]).exponent)
             for i in range(10):
                 exponent = exponent.replace(str(i),super[i])
             print(str(SciNot.parse(VARIABLES["ans"]).coefficient)+" × 10"+exponent)
-        if separator == True:
-            a = f"{int(VARIABLES["ans"]):,}"
+        elif separator == True and not VARIABLES["ans"].__contains__("e") and not VARIABLES["ans"].__contains__("PT") and not VARIABLES["ans"].__contains__("^") and not VARIABLES["ans"].__contains__("{"):
+            a = f"{Decimal(str(VARIABLES["ans"])):,}"
             print(a.replace(",","'"))
         else:
             print(VARIABLES["ans"])

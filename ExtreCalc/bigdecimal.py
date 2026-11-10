@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 import re
 import math
+from scinot import SciNot
+from biginteger import BigInt
 
 DEFAULT_PRECISION = 30
 DEFAULT_ROUNDING = "half_up"
@@ -116,15 +118,24 @@ class BigDecimal:
             -other.sign, other.coefficient, other.exponent
         )
 
-    def __mul__(self, other):
+    def __mul__(
+        self,
+        other,
+        precision=DEFAULT_PRECISION,
+        rounding=DEFAULT_ROUNDING,
+    ):
         if not isinstance(other, BigDecimal):
             other = BigDecimal.parse(str(other))
 
         sign = self.sign * other.sign
-        return BigDecimal(
+        temp = BigDecimal(
             sign,
             self.coefficient * other.coefficient,
             self.exponent + other.exponent
+        )
+        return temp.round_significant(
+            precision=precision,
+            rounding=rounding,
         )
     
     
@@ -348,10 +359,22 @@ class BigDecimal:
         return result + BigDecimal.parse(str(value.exponent))
 
     def compare(self, other):
-        if self.round_significant().coefficient < other.round_significant().coefficient:
-            return -1
-        elif self.round_significant().coefficient == other.round_significant().coefficient:
+        self = BigDecimal.parse(str(self))
+        other = BigDecimal.parse(str(other))
+        if self.coefficient == other.coefficient and self.exponent == other.exponent:
             return 0
+        if self.exponent > other.exponent:
+            c = self.coefficient
+            c2 = other.coefficient
+            for _ in range(self.exponent - other.exponent):
+                c *= 10
+        else:
+            c = other.coefficient
+            c2 = self.coefficient
+            for _ in range(other.exponent - self.exponent):
+                c *= 10
+        if c > c2:
+            return -1
         else:
             return 1
             
@@ -377,16 +400,46 @@ class BigDecimal:
         return BigDecimal(1, self.coefficient, self.exponent)
         
     def __int__(self):
-        return self.round_significant(1,"down")
+        if self.exponent<0:
+            return 0
+        result = ""
+        for i in range(self.exponent+1):
+            if i > len(str(self.coefficient))-1:
+                result += "0"
+            else:
+                result += str(self.coefficient)[i]
+        if self.sign == -1:
+            result = "-"+result
+        return int(result)
     
     def __float__(self):
         return float(str(self))
         
     def __floor__(self):
-        return self.round_significant(1,"floor")
+        if self.exponent<0:
+            return BigDecimal.parse("0")
+        result = ""
+        for i in range(self.exponent+1):
+            if i > len(str(self.coefficient))-1:
+                result += "0"
+            else:
+                result += str(self.coefficient)[i]
+        if self.sign == -1:
+            result = "-"+result
+        return BigDecimal.parse(result)
         
     def __ceil__(self):
-        return self.round_significant(1,"ceiling")
+        if self.exponent<0:
+            return BigDecimal.parse("1")
+        result = ""
+        for i in range(self.exponent+1):
+            if i > len(str(self.coefficient))-1:
+                result += "0"
+            else:
+                result += str(self.coefficient)[i]
+        if self.sign == -1:
+            result = "-"+result
+        return BigDecimal.parse(result)+1
 
     def sqrt(self, precision=None, rounding=None, *, context=None):
         """Return the nonnegative square root as a rounded BigDecimal."""
@@ -441,8 +494,33 @@ class BigDecimal:
             root,
             exponent // 2 - extra_digits,
         )
-    
         return result.round_significant(
             precision=precision,
             rounding=rounding,
         )
+
+    def __pow__(self,other,precision=None):
+        if precision is None:
+            precision = DEFAULT_PRECISION
+        result = other * self.log10(precision)
+        resulte = math.floor(result)
+        resultm = BigDecimal.parse("1")
+        remainder = result - resulte
+        q = BigDecimal.sqrt(BigDecimal.parse("10"))
+        for _ in range(precision):
+            remainder *= 2
+            if remainder >= BigDecimal.parse("1"):
+                resultm *= q
+                remainder -= 1
+            q = BigDecimal.sqrt(q)
+        resultm = BigDecimal.parse(str(resultm))
+        if resulte < BigDecimal.parse("4000"):
+            if resulte < 0:
+                result = resultm * BigDecimal.parse("0."+("0"*-int((resulte+1)))+"1")
+            else:
+                result = resultm * BigDecimal.parse("1"+("0"*int(resulte)))
+            return result.round_significant(
+                precision=precision,
+            )
+        else:
+            return SciNot(resultm,resulte)
