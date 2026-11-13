@@ -1,3 +1,10 @@
-from bigdecimal import BigDecimal
+from biginteger import BigInt
 
-print(str(BigDecimal.parse("10")**BigDecimal.parse("0.5")))
+dict=[]
+
+temp = BigInt("1")
+for i in range(1000):
+    temp *= BigInt(str(i))+BigInt("1")
+    if i%20 == 0:
+        dict.append(str(temp))
+print(str(dict))

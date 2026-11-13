@@ -12,6 +12,7 @@ import os
 import sys
 import math
 import operator
+from playsound3 import playsound
 
 sys.set_int_max_str_digits(0)
 super = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
@@ -81,6 +82,8 @@ BINARY_OPERATORS = {
     ast.FloorDiv: integer_divide,
     ast.Mod: remainder,
     ast.Pow: power,
+    ast.LShift: expansion,
+    ast.RShift: factorial,
 }
 
 UNARY_OPERATORS = {
@@ -310,21 +313,28 @@ def evaluate_node(node):
     return f"\033[91mUnsupported expression: {type(node).__name__}\033[0m"
 
 def normalize_ternary_operators(text):
-    """Translate a{c}b into a @ c @ b for AST parsing."""
     result = []
     depth = 0
 
-    for char in text:
-        if char == "{":
+    c = 0
+    while c < len(text):
+        if text[c] == "{" and text[c+1] == "{" and text[c+2] == "1" and text[c+3] == "}" and text[c+4] == "}":
+            result.append(" << ")
+            c += 4
+        elif text[c] == "!":
+            result.append(" >> ")
+            result.append("0")
+        elif text[c] == "{":
             depth += 1
             result.append(" @ ")
-        elif char == "}":
+        elif text[c] == "}":
             if depth == 0:
                 raise SyntaxError("Unmatched closing brace.")
             depth -= 1
             result.append(" @ ")
         else:
-            result.append(char)
+            result.append(text[c])
+        c += 1
 
     if depth != 0:
         raise SyntaxError("Unmatched opening brace.")
@@ -341,7 +351,10 @@ def evaluate_tokens(tokens):
     tree = ast.parse(CURRENT_EXPRESSION, mode="eval")
     return evaluate_node(tree)
 
-
+try:
+    sound = playsound("/workspaces/ExtreCalc/Music.wav", block=False)
+except:
+    pass
 print("Go ahead -- just TRY to make me overflow!")
 print("\033[36m  ______      _             _____      _       \033[0m")
 print("\033[36m |  ____|    | |           / ____|    | |      \033[0m")
@@ -370,6 +383,7 @@ while running:
         print("\033[32m sqrt(a) ---------------- square root\033[0m")
         print("\033[32m log10(a) --------- base-10 logarithm\033[0m")
         print("\033[32m logb(a,b) --------- base-b logarithm\033[0m")
+        print("\033[32m a! -------------- factorial function\033[0m")
         print("\033[32m a{c}b -------------- hyperoperations\033[0m")
         print("\033[32m ackermann(a) -- ath ackermann number\033[0m")
         print("\033[32m ackermann(a,b) -------------- A(a,b)\033[0m")
@@ -415,7 +429,11 @@ while running:
             separator = False
         print("separators has been set to " + str(separator))
         print("")
-    else:    
+    else:
+        try:
+            sound = playsound("/workspaces/ExtreCalc/fears-to-fathom-notification.wav", block=False)
+        except:
+            pass
         if isinstance(evaluate_tokens(tokenize_input(INPUT)), ExpantaNum):
             VARIABLES["ans"] = ExpantaNum.to_str(evaluate_tokens(tokenize_input(INPUT)),superBool)
         else:

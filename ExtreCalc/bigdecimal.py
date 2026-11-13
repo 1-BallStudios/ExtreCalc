@@ -415,20 +415,33 @@ class BigDecimal:
     def __float__(self):
         return float(str(self))
         
-    def __floor__(self):
-        if self.exponent<0:
+    def floor_decimal(self):
+        """Floor while preserving the BigDecimal representation."""
+        if self.sign == 0:
             return BigDecimal.parse("0")
-        result = ""
-        for i in range(self.exponent+1):
-            if i > len(str(self.coefficient))-1:
-                result += "0"
-            else:
-                result += str(self.coefficient)[i]
-        if self.sign == -1:
-            result = "-"+result
-        return BigDecimal.parse(result)
-        
-    def __ceil__(self):
+
+        if self.exponent >= 0:
+            return self
+
+        divisor = 10 ** (-self.exponent)
+        quotient, remainder = divmod(
+            self.coefficient, divisor
+        )
+
+        if self.sign < 0 and remainder:
+            quotient += 1
+
+        return BigDecimal(
+            self.sign,
+            quotient,
+            0
+        )
+
+    def floor(self):
+        """Python-compatible floor returning an int."""
+        return int(str(self.floor_decimal()))
+            
+    def ceil(self):
         if self.exponent<0:
             return BigDecimal.parse("1")
         result = ""
@@ -503,7 +516,7 @@ class BigDecimal:
         if precision is None:
             precision = DEFAULT_PRECISION
         result = other * self.log10(precision)
-        resulte = math.floor(result)
+        resulte = BigDecimal.floor(result)
         resultm = BigDecimal.parse("1")
         remainder = result - resulte
         q = BigDecimal.sqrt(BigDecimal.parse("10"))
